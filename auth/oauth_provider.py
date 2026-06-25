@@ -127,7 +127,7 @@ class CattleOAuthProvider:
 
         await self._db(_insert)
 
-        callback = f"{self.base_url}/supabase/callback?mcp_state={state_id}"
+        callback = f"{self.base_url}/supabase/callback/landing?mcp_state={state_id}"
         return (
             f"{self.supabase_url}/auth/v1/authorize"
             f"?provider=google"

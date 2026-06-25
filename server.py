@@ -463,6 +463,24 @@ async def health(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "cattle-tracker"})
 
 
+async def supabase_callback_landing(request: Request):
+    """
+    Supabase returns auth params in the URL fragment (#) which never reaches
+    the server. This page runs in the browser, extracts the fragment, and
+    redirects to /supabase/callback as query params so the server can read them.
+    """
+    from starlette.responses import HTMLResponse as HR
+    return HR("""<!DOCTYPE html>
+<html><body><script>
+  const hash = window.location.hash.substring(1);
+  const params = new URLSearchParams(hash);
+  // Merge any existing query params (mcp_state is passed as a query param)
+  const query = new URLSearchParams(window.location.search);
+  for (const [k, v] of params) { query.set(k, v); }
+  window.location.replace('/supabase/callback?' + query.toString());
+</script></body></html>""")
+
+
 issuer  = AnyHttpUrl(BASE_URL)
 mcp_url = AnyHttpUrl(f"{BASE_URL}/mcp")
 
@@ -482,6 +500,7 @@ app = Starlette(
     lifespan=lifespan,
     routes=[
         Route("/", endpoint=health),
+        Route("/supabase/callback/landing", endpoint=supabase_callback_landing),
         Route("/supabase/callback", endpoint=handle_supabase_callback),
         *auth_routes,
         *protected_resource_routes,

@@ -9,5 +9,7 @@ services:
         sync: false
       - key: SUPABASE_KEY
         sync: false
-      - key: API_KEY
+      - key: BASE_URL
+        sync: false
+      - key: ALLOWED_EMAILS
         sync: false

@@ -1,19 +1,24 @@
 import contextlib
-import hmac
 import json
 import os
 from collections.abc import AsyncIterator
 
 from dotenv import load_dotenv
 from mcp.server import Server
+from mcp.server.auth.routes import create_auth_routes, create_protected_resource_routes
+from mcp.server.auth.settings import ClientRegistrationOptions, RevocationOptions
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from mcp.types import TextContent, Tool
+from pydantic import AnyHttpUrl
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from auth.context import current_user_id
+from auth.oauth_provider import CattleOAuthProvider
+from auth.supabase_callback import handle_supabase_callback
 from db.client import get_client
 from tools.entry import (
     add_animal,
@@ -39,9 +44,21 @@ from tools.retrieval import (
 
 load_dotenv()
 
-API_KEY = os.environ["API_KEY"]
+BASE_URL     = os.environ["BASE_URL"]       # e.g. https://cattle-tracker-2kq1.onrender.com
+SUPABASE_URL = os.environ["SUPABASE_URL"]
+ALLOWED_EMAILS: set[str] = {
+    e.strip().lower()
+    for e in os.environ.get("ALLOWED_EMAILS", "").split(",")
+    if e.strip()
+}
 
 server = Server("cattle-tracker")
+oauth_provider = CattleOAuthProvider(
+    db=get_client(),
+    base_url=BASE_URL,
+    supabase_url=SUPABASE_URL,
+    allowed_emails=ALLOWED_EMAILS,
+)
 
 
 # ── Tool definitions ──────────────────────────────────────────────────────────
@@ -189,13 +206,13 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "animal_id":   {"type": "string", "description": "Single-record mode: UUID"},
-                    "tag":         {"type": "string", "description": "Single-record mode: short tag e.g. '28N'"},
+                    "animal_id":        {"type": "string", "description": "Single-record mode: UUID"},
+                    "tag":              {"type": "string", "description": "Single-record mode: short tag e.g. '28N'"},
                     "registration_num": {"type": "string"},
-                    "weight_date": {"type": "string", "description": "ISO date — defaults to today. Used as default for batch records."},
-                    "weight_lbs":  {"type": "number", "description": "Single-record mode"},
-                    "category":    {"type": "string", "enum": ["weaning", "yearly", "routine"], "description": "Default for all batch records"},
-                    "notes":       {"type": "string"},
+                    "weight_date":      {"type": "string", "description": "ISO date — defaults to today. Used as default for batch records."},
+                    "weight_lbs":       {"type": "number", "description": "Single-record mode"},
+                    "category":         {"type": "string", "enum": ["weaning", "yearly", "routine"], "description": "Default for all batch records"},
+                    "notes":            {"type": "string"},
                     "records": {
                         "type": "array",
                         "description": "Batch mode: list of weight entries. Top-level weight_date/category/notes apply to all unless overridden per item.",
@@ -266,17 +283,17 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "animal_id":    {"type": "string", "description": "Single-record mode: UUID"},
-                    "tag":          {"type": "string", "description": "Single-record mode: short tag"},
+                    "animal_id":        {"type": "string", "description": "Single-record mode: UUID"},
+                    "tag":              {"type": "string", "description": "Single-record mode: short tag"},
                     "registration_num": {"type": "string"},
-                    "event_date":   {"type": "string", "description": "ISO date — defaults to today. Default for batch records."},
-                    "event_type":   {"type": "string", "enum": ["illness", "treatment", "vet_visit", "injury", "other"], "description": "Default for batch records"},
-                    "description":  {"type": "string", "description": "Default for batch records"},
-                    "treatment":    {"type": "string"},
-                    "medication":   {"type": "string"},
-                    "veterinarian": {"type": "string"},
-                    "resolved_date":{"type": "string", "description": "ISO date — leave blank if still active"},
-                    "notes":        {"type": "string"},
+                    "event_date":       {"type": "string", "description": "ISO date — defaults to today. Default for batch records."},
+                    "event_type":       {"type": "string", "enum": ["illness", "treatment", "vet_visit", "injury", "other"], "description": "Default for batch records"},
+                    "description":      {"type": "string", "description": "Default for batch records"},
+                    "treatment":        {"type": "string"},
+                    "medication":       {"type": "string"},
+                    "veterinarian":     {"type": "string"},
+                    "resolved_date":    {"type": "string", "description": "ISO date — leave blank if still active"},
+                    "notes":            {"type": "string"},
                     "records": {
                         "type": "array",
                         "description": "Batch mode: list of animals receiving the same event. Top-level event_type/description/medication apply to all unless overridden.",
@@ -360,36 +377,32 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     db = get_client()
 
     dispatch = {
-        "search_animals":          lambda: search_animals(db, arguments),
-        "get_animal_detail":       lambda: get_animal_detail(db, arguments),
-        "get_weight_history":      lambda: get_weight_history(db, arguments),
-        "get_vaccination_records": lambda: get_vaccination_records(db, arguments),
-        "get_health_events":       lambda: get_health_events(db, arguments),
-        "get_breeding_records":    lambda: get_breeding_records(db, arguments),
-        "add_animal":              lambda: add_animal(db, arguments),
-        "update_animal":           lambda: update_animal(db, arguments),
-        "record_weight":           lambda: record_weight(db, arguments),
-        "record_vaccination":      lambda: record_vaccination(db, arguments),
-        "log_health_event":        lambda: log_health_event(db, arguments),
-        "record_breeding":         lambda: record_breeding(db, arguments),
-        "get_herd_summary":        lambda: get_herd_summary(db, arguments),
+        "search_animals":            lambda: search_animals(db, arguments),
+        "get_animal_detail":         lambda: get_animal_detail(db, arguments),
+        "get_weight_history":        lambda: get_weight_history(db, arguments),
+        "get_vaccination_records":   lambda: get_vaccination_records(db, arguments),
+        "get_health_events":         lambda: get_health_events(db, arguments),
+        "get_breeding_records":      lambda: get_breeding_records(db, arguments),
+        "add_animal":                lambda: add_animal(db, arguments),
+        "update_animal":             lambda: update_animal(db, arguments),
+        "record_weight":             lambda: record_weight(db, arguments),
+        "record_vaccination":        lambda: record_vaccination(db, arguments),
+        "log_health_event":          lambda: log_health_event(db, arguments),
+        "record_breeding":           lambda: record_breeding(db, arguments),
+        "get_herd_summary":          lambda: get_herd_summary(db, arguments),
         "get_upcoming_vaccinations": lambda: get_upcoming_vaccinations(db, arguments),
         "get_active_health_issues":  lambda: get_active_health_issues(db, arguments),
     }
 
     handler = dispatch.get(name)
-    if handler is None:
-        result = {"error": f"Unknown tool: {name}"}
-    else:
-        result = handler()
-
+    result = handler() if handler else {"error": f"Unknown tool: {name}"}
     return [TextContent(type="text", text=json.dumps(result, default=str))]
 
 
 # ── Bearer auth middleware ─────────────────────────────────────────────────────
 
 class BearerAuthMiddleware:
-    """Validates Authorization: Bearer <API_KEY> on /mcp requests."""
+    """Validates OAuth Bearer tokens on /mcp requests and sets current_user_id."""
 
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
@@ -402,15 +415,31 @@ class BearerAuthMiddleware:
         headers = dict(scope.get("headers", []))
         auth = headers.get(b"authorization", b"").decode()
 
-        token = auth[7:] if auth.startswith("Bearer ") else ""
-        if not token or not hmac.compare_digest(token, API_KEY):
+        if not auth.startswith("Bearer "):
+            resource_metadata_url = f"{BASE_URL}/.well-known/oauth-protected-resource/mcp"
             response = Response(
                 status_code=401,
-                headers={"WWW-Authenticate": 'Bearer realm="cattle-tracker"'},
+                headers={
+                    "WWW-Authenticate": (
+                        f'Bearer realm="{BASE_URL}",'
+                        f' resource_metadata_url="{resource_metadata_url}"'
+                    )
+                },
             )
             await response(scope, receive, send)
             return
 
+        token = auth[7:]
+        access_token = await oauth_provider.load_access_token(token)
+        if access_token is None:
+            response = Response(
+                status_code=401,
+                headers={"WWW-Authenticate": f'Bearer realm="{BASE_URL}"'},
+            )
+            await response(scope, receive, send)
+            return
+
+        current_user_id.set(access_token.user_id)
         await self.app(scope, receive, send)
 
 
@@ -421,6 +450,7 @@ session_manager = StreamableHTTPSessionManager(app=server, stateless=True)
 
 @contextlib.asynccontextmanager
 async def lifespan(_app: Starlette) -> AsyncIterator[None]:
+    _app.state.allowed_emails = ALLOWED_EMAILS
     async with session_manager.run():
         yield
 
@@ -433,10 +463,28 @@ async def health(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "cattle-tracker"})
 
 
+issuer  = AnyHttpUrl(BASE_URL)
+mcp_url = AnyHttpUrl(f"{BASE_URL}/mcp")
+
+auth_routes = create_auth_routes(
+    provider=oauth_provider,
+    issuer_url=issuer,
+    client_registration_options=ClientRegistrationOptions(enabled=True),
+    revocation_options=RevocationOptions(enabled=True),
+)
+
+protected_resource_routes = create_protected_resource_routes(
+    resource_url=mcp_url,
+    authorization_servers=[issuer],
+)
+
 app = Starlette(
     lifespan=lifespan,
     routes=[
         Route("/", endpoint=health),
+        Route("/supabase/callback", endpoint=handle_supabase_callback),
+        *auth_routes,
+        *protected_resource_routes,
         Mount("/mcp", app=handle_mcp),
     ],
 )

@@ -22,6 +22,11 @@ from auth.supabase_callback import handle_supabase_callback
 from db.client import get_client
 from tools.entry import (
     add_animal,
+    delete_animal,
+    delete_breeding_record,
+    delete_health_event,
+    delete_vaccination,
+    delete_weight_record,
     log_health_event,
     record_breeding,
     record_vaccination,
@@ -236,9 +241,11 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="record_vaccination",
             description=(
-                "Log vaccination records. For a single animal, provide animal_id/tag/registration_num + vaccine_name + administered_date. "
-                "For a batch (e.g. whole herd processed same day), set top-level vaccine_name/administered_date/next_due_date as defaults "
-                "and pass a 'records' array — each item just needs tag or registration_num. One tool call handles the whole batch."
+                "Record vaccinations administered to animals. Use this for ALL vaccination records — routine scheduled vaccines, "
+                "booster shots, and any other vaccine administration. For a single animal, provide animal_id/tag/registration_num + "
+                "vaccine_name + administered_date. For a batch (e.g. whole herd processed same day), set top-level "
+                "vaccine_name/administered_date/next_due_date as defaults and pass a 'records' array — each item just needs tag or "
+                "registration_num. One tool call handles the whole batch."
             ),
             inputSchema={
                 "type": "object",
@@ -276,9 +283,11 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="log_health_event",
             description=(
-                "Log health events. For a single animal, provide animal_id/tag/registration_num + event_type + description. "
-                "For a batch (e.g. same treatment given to a group), set top-level event_type/description/medication as defaults "
-                "and pass a 'records' array with one entry per animal. One tool call handles the whole batch."
+                "Log unexpected health problems: illnesses, injuries, vet visits for issues, and medical treatments for non-routine conditions. "
+                "Do NOT use this for routine scheduled vaccinations — use record_vaccination instead. "
+                "For a single animal, provide animal_id/tag/registration_num + event_type + description. "
+                "For a batch (e.g. same illness or treatment affecting multiple animals), set top-level event_type/description/medication "
+                "as defaults and pass a 'records' array with one entry per animal. One tool call handles the whole batch."
             ),
             inputSchema={
                 "type": "object",
@@ -336,6 +345,62 @@ async def list_tools() -> list[Tool]:
                 },
             },
         ),
+        # ── Delete ────────────────────────────────────────────────────────────
+        Tool(
+            name="delete_animal",
+            description="Permanently delete an animal record and all its associated data (weights, vaccinations, health events). Cannot be undone.",
+            inputSchema={
+                "type": "object",
+                "required": ["animal_id"],
+                "properties": {
+                    "animal_id": {"type": "string", "description": "UUID of the animal to delete"},
+                },
+            },
+        ),
+        Tool(
+            name="delete_weight_record",
+            description="Delete a single weight record by its ID.",
+            inputSchema={
+                "type": "object",
+                "required": ["weight_record_id"],
+                "properties": {
+                    "weight_record_id": {"type": "string", "description": "UUID of the weight record to delete"},
+                },
+            },
+        ),
+        Tool(
+            name="delete_vaccination",
+            description="Delete a single vaccination record by its ID.",
+            inputSchema={
+                "type": "object",
+                "required": ["vaccination_id"],
+                "properties": {
+                    "vaccination_id": {"type": "string", "description": "UUID of the vaccination record to delete"},
+                },
+            },
+        ),
+        Tool(
+            name="delete_health_event",
+            description="Delete a single health event record by its ID.",
+            inputSchema={
+                "type": "object",
+                "required": ["health_event_id"],
+                "properties": {
+                    "health_event_id": {"type": "string", "description": "UUID of the health event to delete"},
+                },
+            },
+        ),
+        Tool(
+            name="delete_breeding_record",
+            description="Delete a single breeding record by its ID.",
+            inputSchema={
+                "type": "object",
+                "required": ["breeding_record_id"],
+                "properties": {
+                    "breeding_record_id": {"type": "string", "description": "UUID of the breeding record to delete"},
+                },
+            },
+        ),
         # ── Intelligence ───────────────────────────────────────────────────────
         Tool(
             name="get_herd_summary",
@@ -389,6 +454,11 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         "record_vaccination":        lambda: record_vaccination(db, arguments),
         "log_health_event":          lambda: log_health_event(db, arguments),
         "record_breeding":           lambda: record_breeding(db, arguments),
+        "delete_animal":             lambda: delete_animal(db, arguments),
+        "delete_weight_record":      lambda: delete_weight_record(db, arguments),
+        "delete_vaccination":        lambda: delete_vaccination(db, arguments),
+        "delete_health_event":       lambda: delete_health_event(db, arguments),
+        "delete_breeding_record":    lambda: delete_breeding_record(db, arguments),
         "get_herd_summary":          lambda: get_herd_summary(db, arguments),
         "get_upcoming_vaccinations": lambda: get_upcoming_vaccinations(db, arguments),
         "get_active_health_issues":  lambda: get_active_health_issues(db, arguments),

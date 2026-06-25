@@ -22,11 +22,7 @@ from auth.supabase_callback import handle_supabase_callback
 from db.client import get_client
 from tools.entry import (
     add_animal,
-    delete_animal,
-    delete_breeding_record,
-    delete_health_event,
-    delete_vaccination,
-    delete_weight_record,
+    delete_record,
     log_health_event,
     record_breeding,
     record_vaccination,
@@ -347,57 +343,18 @@ async def list_tools() -> list[Tool]:
         ),
         # ── Delete ────────────────────────────────────────────────────────────
         Tool(
-            name="delete_animal",
-            description="Permanently delete an animal record and all its associated data (weights, vaccinations, health events). Cannot be undone.",
+            name="delete_record",
+            description=(
+                "Permanently delete a single record from any table. Cannot be undone. "
+                "Deleting an animal also cascades to its weights, vaccinations, and health events. "
+                "Use get_animal_detail or the relevant retrieval tool first to confirm the record_id."
+            ),
             inputSchema={
                 "type": "object",
-                "required": ["animal_id"],
+                "required": ["table", "record_id"],
                 "properties": {
-                    "animal_id": {"type": "string", "description": "UUID of the animal to delete"},
-                },
-            },
-        ),
-        Tool(
-            name="delete_weight_record",
-            description="Delete a single weight record by its ID.",
-            inputSchema={
-                "type": "object",
-                "required": ["weight_record_id"],
-                "properties": {
-                    "weight_record_id": {"type": "string", "description": "UUID of the weight record to delete"},
-                },
-            },
-        ),
-        Tool(
-            name="delete_vaccination",
-            description="Delete a single vaccination record by its ID.",
-            inputSchema={
-                "type": "object",
-                "required": ["vaccination_id"],
-                "properties": {
-                    "vaccination_id": {"type": "string", "description": "UUID of the vaccination record to delete"},
-                },
-            },
-        ),
-        Tool(
-            name="delete_health_event",
-            description="Delete a single health event record by its ID.",
-            inputSchema={
-                "type": "object",
-                "required": ["health_event_id"],
-                "properties": {
-                    "health_event_id": {"type": "string", "description": "UUID of the health event to delete"},
-                },
-            },
-        ),
-        Tool(
-            name="delete_breeding_record",
-            description="Delete a single breeding record by its ID.",
-            inputSchema={
-                "type": "object",
-                "required": ["breeding_record_id"],
-                "properties": {
-                    "breeding_record_id": {"type": "string", "description": "UUID of the breeding record to delete"},
+                    "table":     {"type": "string", "enum": ["animals", "weight_records", "vaccinations", "health_events", "breeding_records"]},
+                    "record_id": {"type": "string", "description": "UUID of the record to delete"},
                 },
             },
         ),
@@ -454,11 +411,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         "record_vaccination":        lambda: record_vaccination(db, arguments),
         "log_health_event":          lambda: log_health_event(db, arguments),
         "record_breeding":           lambda: record_breeding(db, arguments),
-        "delete_animal":             lambda: delete_animal(db, arguments),
-        "delete_weight_record":      lambda: delete_weight_record(db, arguments),
-        "delete_vaccination":        lambda: delete_vaccination(db, arguments),
-        "delete_health_event":       lambda: delete_health_event(db, arguments),
-        "delete_breeding_record":    lambda: delete_breeding_record(db, arguments),
+        "delete_record":             lambda: delete_record(db, arguments),
         "get_herd_summary":          lambda: get_herd_summary(db, arguments),
         "get_upcoming_vaccinations": lambda: get_upcoming_vaccinations(db, arguments),
         "get_active_health_issues":  lambda: get_active_health_issues(db, arguments),

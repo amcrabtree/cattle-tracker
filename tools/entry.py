@@ -192,54 +192,22 @@ def log_health_event(client: Client, args: dict) -> dict:
     return {"success": True, "health_event_id": result.data[0]["id"]}
 
 
-def delete_animal(client: Client, args: dict) -> dict:
-    animal_id = args.get("animal_id")
-    if not animal_id:
-        return {"error": "animal_id is required."}
-    result = client.table("animals").delete().eq("id", animal_id).execute()
-    if not result.data:
-        return {"error": f"No animal found with id '{animal_id}'"}
-    return {"success": True, "deleted_animal_id": animal_id}
+_DELETABLE_TABLES = {
+    "animals", "weight_records", "vaccinations", "health_events", "breeding_records"
+}
 
 
-def delete_weight_record(client: Client, args: dict) -> dict:
-    record_id = args.get("weight_record_id")
+def delete_record(client: Client, args: dict) -> dict:
+    table = args.get("table")
+    record_id = args.get("record_id")
+    if table not in _DELETABLE_TABLES:
+        return {"error": f"Invalid table '{table}'. Must be one of: {', '.join(sorted(_DELETABLE_TABLES))}"}
     if not record_id:
-        return {"error": "weight_record_id is required."}
-    result = client.table("weight_records").delete().eq("id", record_id).execute()
+        return {"error": "record_id is required."}
+    result = client.table(table).delete().eq("id", record_id).execute()
     if not result.data:
-        return {"error": f"No weight record found with id '{record_id}'"}
-    return {"success": True, "deleted_weight_record_id": record_id}
-
-
-def delete_vaccination(client: Client, args: dict) -> dict:
-    record_id = args.get("vaccination_id")
-    if not record_id:
-        return {"error": "vaccination_id is required."}
-    result = client.table("vaccinations").delete().eq("id", record_id).execute()
-    if not result.data:
-        return {"error": f"No vaccination record found with id '{record_id}'"}
-    return {"success": True, "deleted_vaccination_id": record_id}
-
-
-def delete_health_event(client: Client, args: dict) -> dict:
-    record_id = args.get("health_event_id")
-    if not record_id:
-        return {"error": "health_event_id is required."}
-    result = client.table("health_events").delete().eq("id", record_id).execute()
-    if not result.data:
-        return {"error": f"No health event found with id '{record_id}'"}
-    return {"success": True, "deleted_health_event_id": record_id}
-
-
-def delete_breeding_record(client: Client, args: dict) -> dict:
-    record_id = args.get("breeding_record_id")
-    if not record_id:
-        return {"error": "breeding_record_id is required."}
-    result = client.table("breeding_records").delete().eq("id", record_id).execute()
-    if not result.data:
-        return {"error": f"No breeding record found with id '{record_id}'"}
-    return {"success": True, "deleted_breeding_record_id": record_id}
+        return {"error": f"No record found in '{table}' with id '{record_id}'"}
+    return {"success": True, "deleted_from": table, "record_id": record_id}
 
 
 def record_breeding(client: Client, args: dict) -> dict:

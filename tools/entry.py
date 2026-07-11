@@ -9,6 +9,19 @@ _ANIMAL_FIELDS = [
 
 
 def add_animal(client: Client, args: dict) -> dict:
+    # Batch mode: args contains an "animals" list
+    if "animals" in args:
+        defaults = {k: args[k] for k in _ANIMAL_FIELDS if k in args}
+        rows = []
+        for item in args["animals"]:
+            row = {**defaults, **{k: item[k] for k in _ANIMAL_FIELDS if k in item}}
+            row.setdefault("status", "active")
+            rows.append(row)
+        if not rows:
+            return {"error": "No animals provided."}
+        result = client.table("animals").insert(rows).execute()
+        return {"success": True, "inserted": len(result.data), "animal_ids": [a["id"] for a in result.data]}
+
     row = {k: args[k] for k in _ANIMAL_FIELDS if k in args}
     row.setdefault("status", "active")
 
@@ -17,6 +30,26 @@ def add_animal(client: Client, args: dict) -> dict:
 
 
 def update_animal(client: Client, args: dict) -> dict:
+    # Batch mode: args contains an "updates" list, each with animal_id/tag/registration_num + fields
+    if "updates" in args:
+        defaults = {k: args[k] for k in _ANIMAL_FIELDS if k in args}
+        updated = []
+        skipped = []
+        for item in args["updates"]:
+            animal_id = _resolve_animal_id(client, item)
+            fields = {**defaults, **{k: item[k] for k in _ANIMAL_FIELDS if k in item}}
+            if not animal_id or not fields:
+                skipped.append(item)
+                continue
+            result = client.table("animals").update(fields).eq("id", animal_id).execute()
+            if not result.data:
+                skipped.append(item)
+                continue
+            updated.append(result.data[0])
+        if not updated:
+            return {"error": "No animals could be updated.", "skipped": skipped}
+        return {"success": True, "updated": len(updated), "animals": updated, "skipped": skipped}
+
     animal_id = args["animal_id"]
     updates = {k: args[k] for k in _ANIMAL_FIELDS if k in args}
     if not updates:
@@ -199,9 +232,20 @@ _DELETABLE_TABLES = {
 
 def delete_record(client: Client, args: dict) -> dict:
     table = args.get("table")
-    record_id = args.get("record_id")
     if table not in _DELETABLE_TABLES:
         return {"error": f"Invalid table '{table}'. Must be one of: {', '.join(sorted(_DELETABLE_TABLES))}"}
+
+    # Batch mode: args contains a "record_ids" list
+    if "record_ids" in args:
+        record_ids = args["record_ids"]
+        if not record_ids:
+            return {"error": "record_ids is empty."}
+        result = client.table(table).delete().in_("id", record_ids).execute()
+        deleted_ids = [r["id"] for r in result.data]
+        skipped = [rid for rid in record_ids if rid not in deleted_ids]
+        return {"success": True, "deleted_from": table, "deleted_count": len(deleted_ids), "deleted_ids": deleted_ids, "skipped": skipped}
+
+    record_id = args.get("record_id")
     if not record_id:
         return {"error": "record_id is required."}
     result = client.table(table).delete().eq("id", record_id).execute()
@@ -215,6 +259,36 @@ def record_breeding(client: Client, args: dict) -> dict:
         "breeding_date", "expected_calving_date", "actual_calving_date",
         "calf_id", "outcome", "notes",
     ]
+
+    # Batch mode: args contains a "records" list
+    if "records" in args:
+        defaults = {k: args[k] for k in _BREEDING_FIELDS if k in args}
+        updated = []
+        inserted_ids = []
+        skipped = []
+        for item in args["records"]:
+            merged = {**defaults, **{k: item[k] for k in _BREEDING_FIELDS if k in item}}
+            if item.get("breeding_record_id"):
+                result = (
+                    client.table("breeding_records")
+                    .update(merged)
+                    .eq("id", item["breeding_record_id"])
+                    .execute()
+                )
+                if not result.data:
+                    skipped.append(item)
+                    continue
+                updated.append(result.data[0])
+                continue
+            if not item.get("dam_id") or not item.get("sire_id"):
+                skipped.append(item)
+                continue
+            row = {"dam_id": item["dam_id"], "sire_id": item["sire_id"], **merged}
+            result = client.table("breeding_records").insert(row).execute()
+            inserted_ids.append(result.data[0]["id"])
+        if not updated and not inserted_ids:
+            return {"error": "No breeding records could be processed.", "skipped": skipped}
+        return {"success": True, "updated": updated, "inserted_ids": inserted_ids, "skipped": skipped}
 
     if args.get("breeding_record_id"):
         updates = {k: args[k] for k in _BREEDING_FIELDS if k in args}

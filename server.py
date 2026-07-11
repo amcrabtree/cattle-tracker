@@ -152,16 +152,19 @@ async def list_tools() -> list[Tool]:
         # ── Entry ──────────────────────────────────────────────────────────────
         Tool(
             name="add_animal",
-            description="Add a new animal to the herd.",
+            description=(
+                "Add one or more new animals to the herd. For a single animal, provide fields at the top level "
+                "(animal_type required). For a batch, set top-level defaults (e.g. animal_type, status, dob) and "
+                "pass an 'animals' array — each item's fields override the defaults. One tool call handles the whole batch."
+            ),
             inputSchema={
                 "type": "object",
-                "required": ["animal_type"],
                 "properties": {
                     "registration_num": {"type": "string"},
                     "phn":              {"type": "string"},
                     "tag":              {"type": "string"},
                     "name":             {"type": "string", "description": "Sire display name"},
-                    "animal_type":      {"type": "string", "enum": ["calf", "cow", "bull", "sire", "steer"]},
+                    "animal_type":      {"type": "string", "enum": ["calf", "cow", "bull", "sire", "steer"], "description": "Required in single mode; default for batch"},
                     "sex":              {"type": "string", "enum": ["M", "F"]},
                     "color":            {"type": "string"},
                     "dob":              {"type": "string", "description": "ISO date"},
@@ -170,17 +173,43 @@ async def list_tools() -> list[Tool]:
                     "sire_id":          {"type": "string", "description": "UUID of the sire"},
                     "bangs_tag":        {"type": "string", "description": "Official brucellosis vaccination tag number issued to heifers"},
                     "notes":            {"type": "string"},
+                    "animals": {
+                        "type": "array",
+                        "description": "Batch mode: list of animals to add. Top-level fields apply to all unless overridden per item.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "registration_num": {"type": "string"},
+                                "phn":              {"type": "string"},
+                                "tag":              {"type": "string"},
+                                "name":             {"type": "string"},
+                                "animal_type":      {"type": "string", "enum": ["calf", "cow", "bull", "sire", "steer"]},
+                                "sex":              {"type": "string", "enum": ["M", "F"]},
+                                "color":            {"type": "string"},
+                                "dob":              {"type": "string"},
+                                "status":           {"type": "string", "enum": ["active", "dead", "sold"]},
+                                "dam_id":           {"type": "string"},
+                                "sire_id":          {"type": "string"},
+                                "bangs_tag":        {"type": "string"},
+                                "notes":            {"type": "string"},
+                            },
+                        },
+                    },
                 },
             },
         ),
         Tool(
             name="update_animal",
-            description="Update fields on an existing animal (status, tag, notes, parentage, etc.).",
+            description=(
+                "Update fields on one or more existing animals (status, tag, notes, parentage, etc.). For a single "
+                "animal, provide animal_id + fields to change. For a batch (e.g. marking several animals sold), set "
+                "top-level defaults (e.g. status) and pass an 'updates' array — each item needs animal_id, tag, or "
+                "registration_num. One tool call handles the whole batch."
+            ),
             inputSchema={
                 "type": "object",
-                "required": ["animal_id"],
                 "properties": {
-                    "animal_id":        {"type": "string"},
+                    "animal_id":        {"type": "string", "description": "Single-record mode: UUID"},
                     "registration_num": {"type": "string"},
                     "phn":              {"type": "string"},
                     "tag":              {"type": "string"},
@@ -189,11 +218,34 @@ async def list_tools() -> list[Tool]:
                     "sex":              {"type": "string", "enum": ["M", "F"]},
                     "color":            {"type": "string"},
                     "dob":              {"type": "string", "description": "ISO date"},
-                    "status":           {"type": "string", "enum": ["active", "dead", "sold"]},
+                    "status":           {"type": "string", "enum": ["active", "dead", "sold"], "description": "Default for all batch updates"},
                     "dam_id":           {"type": "string"},
                     "sire_id":          {"type": "string"},
                     "bangs_tag":        {"type": "string", "description": "Official brucellosis vaccination tag number issued to heifers"},
                     "notes":            {"type": "string"},
+                    "updates": {
+                        "type": "array",
+                        "description": "Batch mode: list of animals to update, each identified by animal_id, tag, or registration_num. Top-level fields apply to all unless overridden per item.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "animal_id":        {"type": "string"},
+                                "tag":              {"type": "string"},
+                                "registration_num": {"type": "string"},
+                                "phn":              {"type": "string"},
+                                "name":             {"type": "string"},
+                                "animal_type":      {"type": "string", "enum": ["calf", "cow", "bull", "sire", "steer"]},
+                                "sex":              {"type": "string", "enum": ["M", "F"]},
+                                "color":            {"type": "string"},
+                                "dob":              {"type": "string"},
+                                "status":           {"type": "string", "enum": ["active", "dead", "sold"]},
+                                "dam_id":           {"type": "string"},
+                                "sire_id":          {"type": "string"},
+                                "bangs_tag":        {"type": "string"},
+                                "notes":            {"type": "string"},
+                            },
+                        },
+                    },
                 },
             },
         ),
@@ -324,10 +376,14 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="record_breeding",
-            description="Log a breeding event or update a calving outcome. Provide breeding_record_id to update an existing record.",
+            description=(
+                "Log breeding events or update calving outcomes, one or many at a time. For a single record, provide "
+                "dam_id + sire_id (or breeding_record_id to update an existing record). For a batch, set top-level "
+                "defaults (e.g. breeding_date, outcome) and pass a 'records' array — each item needs dam_id + sire_id "
+                "(new record) or breeding_record_id (update). One tool call handles the whole batch."
+            ),
             inputSchema={
                 "type": "object",
-                "required": ["dam_id", "sire_id"],
                 "properties": {
                     "dam_id":                {"type": "string", "description": "UUID of the dam (cow)"},
                     "sire_id":               {"type": "string", "description": "UUID of the sire (bull)"},
@@ -338,6 +394,24 @@ async def list_tools() -> list[Tool]:
                     "outcome":               {"type": "string", "enum": ["live_birth", "stillbirth", "abort", "pending"]},
                     "notes":                 {"type": "string"},
                     "breeding_record_id":    {"type": "string", "description": "UUID — provide to update an existing record"},
+                    "records": {
+                        "type": "array",
+                        "description": "Batch mode: list of breeding events/updates. Top-level fields apply to all unless overridden per item.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "dam_id":                {"type": "string"},
+                                "sire_id":               {"type": "string"},
+                                "breeding_date":         {"type": "string"},
+                                "expected_calving_date": {"type": "string"},
+                                "actual_calving_date":   {"type": "string"},
+                                "calf_id":               {"type": "string"},
+                                "outcome":               {"type": "string", "enum": ["live_birth", "stillbirth", "abort", "pending"]},
+                                "notes":                 {"type": "string"},
+                                "breeding_record_id":    {"type": "string"},
+                            },
+                        },
+                    },
                 },
             },
         ),
@@ -345,16 +419,22 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="delete_record",
             description=(
-                "Permanently delete a single record from any table. Cannot be undone. "
+                "Permanently delete one or more records from the same table. Cannot be undone. "
                 "Deleting an animal also cascades to its weights, vaccinations, and health events. "
-                "Use get_animal_detail or the relevant retrieval tool first to confirm the record_id."
+                "Use get_animal_detail or the relevant retrieval tool first to confirm record IDs. "
+                "For a single record, provide record_id. For a batch, provide record_ids (all from the same table)."
             ),
             inputSchema={
                 "type": "object",
-                "required": ["table", "record_id"],
+                "required": ["table"],
                 "properties": {
-                    "table":     {"type": "string", "enum": ["animals", "weight_records", "vaccinations", "health_events", "breeding_records"]},
-                    "record_id": {"type": "string", "description": "UUID of the record to delete"},
+                    "table":      {"type": "string", "enum": ["animals", "weight_records", "vaccinations", "health_events", "breeding_records"]},
+                    "record_id":  {"type": "string", "description": "Single-record mode: UUID of the record to delete"},
+                    "record_ids": {
+                        "type": "array",
+                        "description": "Batch mode: UUIDs of records to delete, all from the same table",
+                        "items": {"type": "string"},
+                    },
                 },
             },
         ),

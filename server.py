@@ -82,6 +82,7 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": ANIMAL_SEARCH_FIELDS,
+                "additionalProperties": False,
             },
         ),
         Tool(
@@ -93,6 +94,7 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "animal_id": {"type": "string", "description": "UUID of the animal"},
                 },
+                "additionalProperties": False,
             },
         ),
         Tool(
@@ -106,6 +108,7 @@ async def list_tools() -> list[Tool]:
                     "date_from": {"type": "string", "description": "ISO date e.g. 2025-01-01"},
                     "date_to":   {"type": "string", "description": "ISO date e.g. 2025-12-31"},
                 },
+                "additionalProperties": False,
             },
         ),
         Tool(
@@ -119,6 +122,7 @@ async def list_tools() -> list[Tool]:
                     "date_from":    {"type": "string", "description": "ISO date"},
                     "date_to":      {"type": "string", "description": "ISO date"},
                 },
+                "additionalProperties": False,
             },
         ),
         Tool(
@@ -133,6 +137,7 @@ async def list_tools() -> list[Tool]:
                     "date_to":    {"type": "string", "description": "ISO date"},
                     "resolved":   {"type": "boolean", "description": "true=resolved only, false=unresolved only, omit=all"},
                 },
+                "additionalProperties": False,
             },
         ),
         Tool(
@@ -147,6 +152,7 @@ async def list_tools() -> list[Tool]:
                     "date_from": {"type": "string", "description": "ISO date — filters on breeding_date"},
                     "date_to":   {"type": "string", "description": "ISO date"},
                 },
+                "additionalProperties": False,
             },
         ),
         Tool(
@@ -158,6 +164,7 @@ async def list_tools() -> list[Tool]:
                     "animal_id": {"type": "string", "description": "UUID of the animal"},
                     "source":    {"type": "string", "description": "Breed association or registry, e.g. 'AAA', 'ASA'"},
                 },
+                "additionalProperties": False,
             },
         ),
         # ── Entry ──────────────────────────────────────────────────────────────
@@ -178,9 +185,11 @@ async def list_tools() -> list[Tool]:
                         "items": {
                             "type": "object",
                             "properties": animal_properties(),
+                            "additionalProperties": False,
                         },
                     },
                 },
+                "additionalProperties": False,
             },
         ),
         Tool(
@@ -205,9 +214,11 @@ async def list_tools() -> list[Tool]:
                                 "animal_id": {"type": "string"},
                                 **animal_properties(),
                             },
+                            "additionalProperties": False,
                         },
                     },
                 },
+                "additionalProperties": False,
             },
         ),
         Tool(
@@ -240,9 +251,11 @@ async def list_tools() -> list[Tool]:
                                 **weight_record_properties(),
                             },
                             "required": ["weight_lbs"],
+                            "additionalProperties": False,
                         },
                     },
                 },
+                "additionalProperties": False,
             },
         ),
         Tool(
@@ -276,9 +289,11 @@ async def list_tools() -> list[Tool]:
                                 "animal_id":        {"type": "string"},
                                 **vaccination_properties(),
                             },
+                            "additionalProperties": False,
                         },
                     },
                 },
+                "additionalProperties": False,
             },
         ),
         Tool(
@@ -312,9 +327,11 @@ async def list_tools() -> list[Tool]:
                                 "animal_id":        {"type": "string"},
                                 **health_event_properties(),
                             },
+                            "additionalProperties": False,
                         },
                     },
                 },
+                "additionalProperties": False,
             },
         ),
         Tool(
@@ -339,9 +356,11 @@ async def list_tools() -> list[Tool]:
                                 **breeding_properties(),
                                 "breeding_record_id": {"type": "string"},
                             },
+                            "additionalProperties": False,
                         },
                     },
                 },
+                "additionalProperties": False,
             },
         ),
         Tool(
@@ -373,9 +392,11 @@ async def list_tools() -> list[Tool]:
                                 "animal_id":        {"type": "string"},
                                 **epd_properties(),
                             },
+                            "additionalProperties": False,
                         },
                     },
                 },
+                "additionalProperties": False,
             },
         ),
         # ── Delete ────────────────────────────────────────────────────────────
@@ -399,6 +420,7 @@ async def list_tools() -> list[Tool]:
                         "items": {"type": "string"},
                     },
                 },
+                "additionalProperties": False,
             },
         ),
         # ── Intelligence ───────────────────────────────────────────────────────
@@ -410,6 +432,7 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "upcoming_days": {"type": "integer", "description": "Days ahead to check for upcoming vaccinations (default 30)"},
                 },
+                "additionalProperties": False,
             },
         ),
         Tool(
@@ -420,6 +443,7 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "days": {"type": "integer", "description": "Number of days ahead to look (default 30)"},
                 },
+                "additionalProperties": False,
             },
         ),
         Tool(
@@ -430,6 +454,7 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "event_type": {"type": "string", "enum": ["illness", "treatment", "vet_visit", "injury", "other"]},
                 },
+                "additionalProperties": False,
             },
         ),
     ]
@@ -463,8 +488,25 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     }
 
     handler = dispatch.get(name)
-    result = handler() if handler else {"error": f"Unknown tool: {name}"}
+    if not handler:
+        result = {"error": f"Unknown tool: {name}"}
+    else:
+        unknown = await _unknown_top_level_keys(name, arguments)
+        if unknown:
+            result = {"error": f"Unknown parameter(s) for tool '{name}': {', '.join(sorted(unknown))}"}
+        else:
+            result = handler()
     return [TextContent(type="text", text=json.dumps(result, default=str))]
+
+
+async def _unknown_top_level_keys(tool_name: str, arguments: dict) -> set[str]:
+    """Return any top-level argument keys not declared in the tool's inputSchema properties."""
+    tools = await list_tools()
+    schema = next((t.inputSchema for t in tools if t.name == tool_name), None)
+    if not schema:
+        return set()
+    allowed = set(schema.get("properties", {}))
+    return set(arguments) - allowed
 
 
 # ── Bearer auth middleware ─────────────────────────────────────────────────────

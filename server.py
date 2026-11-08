@@ -46,6 +46,7 @@ from schemas.animals import ANIMAL_SEARCH_FIELDS, animal_properties
 from schemas.breeding_records import breeding_properties
 from schemas.health_events import health_event_properties
 from schemas.vaccinations import vaccination_properties
+from schemas.weight_records import weight_record_properties
 
 load_dotenv()
 
@@ -208,10 +209,11 @@ async def list_tools() -> list[Tool]:
                     "animal_id":        {"type": "string", "description": "Single-record mode: UUID"},
                     "tag":              {"type": "string", "description": "Single-record mode: short tag e.g. '28N'"},
                     "registration_num": {"type": "string"},
-                    "weight_date":      {"type": "string", "description": "ISO date — defaults to today. Used as default for batch records."},
-                    "weight_lbs":       {"type": "number", "description": "Single-record mode"},
-                    "category":         {"type": "string", "enum": ["weaning", "yearly", "routine"], "description": "Default for all batch records"},
-                    "notes":            {"type": "string"},
+                    **weight_record_properties({
+                        "weight_date": {"description": "ISO date — defaults to today. Used as default for batch records."},
+                        "weight_lbs":  {"description": "Single-record mode"},
+                        "category":    {"description": "Default for all batch records"},
+                    }),
                     "records": {
                         "type": "array",
                         "description": "Batch mode: list of weight entries. Top-level weight_date/category/notes apply to all unless overridden per item.",
@@ -221,10 +223,7 @@ async def list_tools() -> list[Tool]:
                                 "tag":              {"type": "string"},
                                 "registration_num": {"type": "string"},
                                 "animal_id":        {"type": "string"},
-                                "weight_lbs":       {"type": "number"},
-                                "weight_date":      {"type": "string"},
-                                "category":         {"type": "string", "enum": ["weaning", "yearly", "routine"]},
-                                "notes":            {"type": "string"},
+                                **weight_record_properties(),
                             },
                             "required": ["weight_lbs"],
                         },

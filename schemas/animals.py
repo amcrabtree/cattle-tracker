@@ -1,4 +1,4 @@
-"""Single source of truth for animal fields, shared by entry/retrieval/server."""
+"""Single source of truth for the `animals` table's fields, shared by entry/retrieval/server."""
 
 ANIMAL_FIELDS: dict[str, dict] = {
     "registration_num": {"type": "string"},
@@ -14,7 +14,7 @@ ANIMAL_FIELDS: dict[str, dict] = {
     "sire_id":          {"type": "string", "description": "UUID of the sire"},
     "bangs_tag":        {"type": "string", "description": "Official brucellosis vaccination tag number issued to heifers"},
     "disposition":      {"type": "integer"},
-    "usda_eid":         {"type": "string", "description": "15-digit USDA EID"},
+    "usda_eid":         {"type": "string", "description": "15-digit USDA EID", "minLength": 15, "maxLength": 15},
     "notes":            {"type": "string"},
 }
 

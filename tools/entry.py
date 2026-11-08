@@ -2,7 +2,7 @@ from datetime import date
 
 from supabase import Client
 
-from tools.animal_schema import ANIMAL_FIELDS
+from schemas.animals import ANIMAL_FIELDS
 
 _ANIMAL_FIELDS = list(ANIMAL_FIELDS)
 

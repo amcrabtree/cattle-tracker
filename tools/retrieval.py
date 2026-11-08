@@ -1,6 +1,6 @@
 from supabase import Client
 
-from tools.animal_schema import ANIMAL_SEARCH_FIELDS, ANIMAL_SEARCH_PARTIAL_MATCH
+from schemas.animals import ANIMAL_SEARCH_FIELDS, ANIMAL_SEARCH_PARTIAL_MATCH
 
 
 def search_animals(client: Client, args: dict) -> list[dict]:

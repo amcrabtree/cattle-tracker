@@ -42,7 +42,7 @@ from tools.retrieval import (
     get_weight_history,
     search_animals,
 )
-from tools.animal_schema import ANIMAL_SEARCH_FIELDS, animal_properties
+from schemas.animals import ANIMAL_SEARCH_FIELDS, animal_properties
 
 load_dotenv()
 

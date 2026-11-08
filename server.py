@@ -25,6 +25,7 @@ from tools.entry import (
     delete_record,
     log_health_event,
     record_breeding,
+    record_epds,
     record_vaccination,
     record_weight,
     update_animal,
@@ -37,6 +38,7 @@ from tools.intelligence import (
 from tools.retrieval import (
     get_animal_detail,
     get_breeding_records,
+    get_epds,
     get_health_events,
     get_vaccination_records,
     get_weight_history,
@@ -44,6 +46,7 @@ from tools.retrieval import (
 )
 from schemas.animals import ANIMAL_SEARCH_FIELDS, animal_properties
 from schemas.breeding_records import breeding_properties
+from schemas.epds import epd_properties
 from schemas.health_events import health_event_properties
 from schemas.vaccinations import vaccination_properties
 from schemas.weight_records import weight_record_properties
@@ -143,6 +146,17 @@ async def list_tools() -> list[Tool]:
                     "outcome":   {"type": "string", "enum": ["live_birth", "stillbirth", "abort", "pending"]},
                     "date_from": {"type": "string", "description": "ISO date — filters on breeding_date"},
                     "date_to":   {"type": "string", "description": "ISO date"},
+                },
+            },
+        ),
+        Tool(
+            name="get_epds",
+            description="EPD (Expected Progeny Difference) records, filterable by animal or source.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "animal_id": {"type": "string", "description": "UUID of the animal"},
+                    "source":    {"type": "string", "description": "Breed association or registry, e.g. 'AAA', 'ASA'"},
                 },
             },
         ),
@@ -330,6 +344,40 @@ async def list_tools() -> list[Tool]:
                 },
             },
         ),
+        Tool(
+            name="record_epds",
+            description=(
+                "Add or update EPDs (Expected Progeny Differences) for an animal — one row per animal, so repeated "
+                "calls overwrite the existing record. For a single animal, provide animal_id/tag/registration_num + "
+                "EPD fields. For a batch, set top-level defaults (e.g. source, as_of_date) and pass a 'records' array "
+                "— each item needs animal_id, tag, or registration_num. One tool call handles the whole batch."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "animal_id":        {"type": "string", "description": "Single-record mode: UUID"},
+                    "tag":              {"type": "string", "description": "Single-record mode: short tag"},
+                    "registration_num": {"type": "string"},
+                    **epd_properties({
+                        "as_of_date": {"description": "ISO date EPDs were calculated/published — default for all batch records"},
+                        "source":     {"description": "Default for all batch records"},
+                    }),
+                    "records": {
+                        "type": "array",
+                        "description": "Batch mode: list of animals. Top-level as_of_date/source apply to all unless overridden per item.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "tag":              {"type": "string"},
+                                "registration_num": {"type": "string"},
+                                "animal_id":        {"type": "string"},
+                                **epd_properties(),
+                            },
+                        },
+                    },
+                },
+            },
+        ),
         # ── Delete ────────────────────────────────────────────────────────────
         Tool(
             name="delete_record",
@@ -343,7 +391,7 @@ async def list_tools() -> list[Tool]:
                 "type": "object",
                 "required": ["table"],
                 "properties": {
-                    "table":      {"type": "string", "enum": ["animals", "weight_records", "vaccinations", "health_events", "breeding_records"]},
+                    "table":      {"type": "string", "enum": ["animals", "weight_records", "vaccinations", "health_events", "breeding_records", "epds"]},
                     "record_id":  {"type": "string", "description": "Single-record mode: UUID of the record to delete"},
                     "record_ids": {
                         "type": "array",
@@ -400,12 +448,14 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         "get_vaccination_records":   lambda: get_vaccination_records(db, arguments),
         "get_health_events":         lambda: get_health_events(db, arguments),
         "get_breeding_records":      lambda: get_breeding_records(db, arguments),
+        "get_epds":                  lambda: get_epds(db, arguments),
         "add_animal":                lambda: add_animal(db, arguments),
         "update_animal":             lambda: update_animal(db, arguments),
         "record_weight":             lambda: record_weight(db, arguments),
         "record_vaccination":        lambda: record_vaccination(db, arguments),
         "log_health_event":          lambda: log_health_event(db, arguments),
         "record_breeding":           lambda: record_breeding(db, arguments),
+        "record_epds":               lambda: record_epds(db, arguments),
         "delete_record":             lambda: delete_record(db, arguments),
         "get_herd_summary":          lambda: get_herd_summary(db, arguments),
         "get_upcoming_vaccinations": lambda: get_upcoming_vaccinations(db, arguments),

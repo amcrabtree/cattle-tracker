@@ -132,6 +132,18 @@ def get_health_events(client: Client, args: dict) -> list[dict]:
     return result.data
 
 
+def get_epds(client: Client, args: dict) -> list[dict]:
+    query = client.table("epds").select("*, animals(tag, registration_num, phn, name)")
+
+    if args.get("animal_id"):
+        query = query.eq("animal_id", args["animal_id"])
+    if args.get("source"):
+        query = query.ilike("source", f"%{args['source']}%")
+
+    result = query.order("as_of_date", desc=True).limit(200).execute()
+    return result.data
+
+
 def get_breeding_records(client: Client, args: dict) -> list[dict]:
     # breeding_records has 3 FKs to animals; use !fkey_name to disambiguate
     query = client.table("breeding_records").select(

@@ -4,8 +4,10 @@ from supabase import Client
 
 from schemas.animals import ANIMAL_FIELDS
 from schemas.breeding_records import BREEDING_UPDATABLE_FIELDS
+from schemas.epds import EPD_FIELDS
 
 _ANIMAL_FIELDS = list(ANIMAL_FIELDS)
+_EPD_FIELDS = list(EPD_FIELDS)
 
 
 def add_animal(client: Client, args: dict) -> dict:
@@ -226,7 +228,7 @@ def log_health_event(client: Client, args: dict) -> dict:
 
 
 _DELETABLE_TABLES = {
-    "animals", "weight_records", "vaccinations", "health_events", "breeding_records"
+    "animals", "weight_records", "vaccinations", "health_events", "breeding_records", "epds"
 }
 
 
@@ -306,3 +308,31 @@ def record_breeding(client: Client, args: dict) -> dict:
     }
     result = client.table("breeding_records").insert(row).execute()
     return {"success": True, "breeding_record_id": result.data[0]["id"]}
+
+
+def record_epds(client: Client, args: dict) -> dict:
+    """Upsert EPDs for one or more animals (one row per animal_id)."""
+    # Batch mode: args contains a "records" list
+    if "records" in args:
+        defaults = {k: args[k] for k in _EPD_FIELDS if k in args}
+        rows = []
+        skipped = []
+        for item in args["records"]:
+            merged = {**defaults, **{k: item[k] for k in _EPD_FIELDS if k in item}}
+            animal_id = _resolve_animal_id(client, item)
+            if not animal_id:
+                skipped.append(item)
+                continue
+            rows.append({"animal_id": animal_id, **merged})
+        if not rows:
+            return {"error": "No records could be matched to animals.", "skipped": skipped}
+        result = client.table("epds").upsert(rows, on_conflict="animal_id").execute()
+        return {"success": True, "upserted": len(result.data), "skipped": skipped}
+
+    # Single mode
+    animal_id = _resolve_animal_id(client, args)
+    if not animal_id:
+        return {"error": "Could not resolve animal. Provide animal_id, tag, or registration_num."}
+    row = {"animal_id": animal_id, **{k: args[k] for k in _EPD_FIELDS if k in args}}
+    result = client.table("epds").upsert(row, on_conflict="animal_id").execute()
+    return {"success": True, "epd_id": result.data[0]["id"]}

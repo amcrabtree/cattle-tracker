@@ -44,6 +44,7 @@ from tools.retrieval import (
 )
 from schemas.animals import ANIMAL_SEARCH_FIELDS, animal_properties
 from schemas.breeding_records import breeding_properties
+from schemas.health_events import health_event_properties
 
 load_dotenv()
 
@@ -287,14 +288,11 @@ async def list_tools() -> list[Tool]:
                     "animal_id":        {"type": "string", "description": "Single-record mode: UUID"},
                     "tag":              {"type": "string", "description": "Single-record mode: short tag"},
                     "registration_num": {"type": "string"},
-                    "event_date":       {"type": "string", "description": "ISO date — defaults to today. Default for batch records."},
-                    "event_type":       {"type": "string", "enum": ["illness", "treatment", "vet_visit", "injury", "other"], "description": "Default for batch records"},
-                    "description":      {"type": "string", "description": "Default for batch records"},
-                    "treatment":        {"type": "string"},
-                    "medication":       {"type": "string"},
-                    "veterinarian":     {"type": "string"},
-                    "resolved_date":    {"type": "string", "description": "ISO date — leave blank if still active"},
-                    "notes":            {"type": "string"},
+                    **health_event_properties({
+                        "event_date":  {"description": "ISO date — defaults to today. Default for batch records."},
+                        "event_type":  {"description": "Default for batch records"},
+                        "description": {"description": "Default for batch records"},
+                    }),
                     "records": {
                         "type": "array",
                         "description": "Batch mode: list of animals receiving the same event. Top-level event_type/description/medication apply to all unless overridden.",
@@ -304,14 +302,7 @@ async def list_tools() -> list[Tool]:
                                 "tag":              {"type": "string"},
                                 "registration_num": {"type": "string"},
                                 "animal_id":        {"type": "string"},
-                                "event_date":       {"type": "string"},
-                                "event_type":       {"type": "string", "enum": ["illness", "treatment", "vet_visit", "injury", "other"]},
-                                "description":      {"type": "string"},
-                                "treatment":        {"type": "string"},
-                                "medication":       {"type": "string"},
-                                "veterinarian":     {"type": "string"},
-                                "resolved_date":    {"type": "string"},
-                                "notes":            {"type": "string"},
+                                **health_event_properties(),
                             },
                         },
                     },

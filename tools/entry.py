@@ -3,6 +3,7 @@ from datetime import date
 from supabase import Client
 
 from schemas.animals import ANIMAL_FIELDS
+from schemas.breeding_records import BREEDING_UPDATABLE_FIELDS
 
 _ANIMAL_FIELDS = list(ANIMAL_FIELDS)
 
@@ -254,10 +255,7 @@ def delete_record(client: Client, args: dict) -> dict:
 
 
 def record_breeding(client: Client, args: dict) -> dict:
-    _BREEDING_FIELDS = [
-        "breeding_date", "expected_calving_date", "actual_calving_date",
-        "calf_id", "outcome", "notes",
-    ]
+    _BREEDING_FIELDS = BREEDING_UPDATABLE_FIELDS
 
     # Batch mode: args contains a "records" list
     if "records" in args:

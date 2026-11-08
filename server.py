@@ -43,6 +43,7 @@ from tools.retrieval import (
     search_animals,
 )
 from schemas.animals import ANIMAL_SEARCH_FIELDS, animal_properties
+from schemas.breeding_records import breeding_properties
 
 load_dotenv()
 
@@ -328,30 +329,16 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "dam_id":                {"type": "string", "description": "UUID of the dam (cow)"},
-                    "sire_id":               {"type": "string", "description": "UUID of the sire (bull)"},
-                    "breeding_date":         {"type": "string", "description": "ISO date"},
-                    "expected_calving_date": {"type": "string", "description": "ISO date"},
-                    "actual_calving_date":   {"type": "string", "description": "ISO date"},
-                    "calf_id":               {"type": "string", "description": "UUID of resulting calf"},
-                    "outcome":               {"type": "string", "enum": ["live_birth", "stillbirth", "abort", "pending"]},
-                    "notes":                 {"type": "string"},
-                    "breeding_record_id":    {"type": "string", "description": "UUID — provide to update an existing record"},
+                    **breeding_properties(),
+                    "breeding_record_id": {"type": "string", "description": "UUID — provide to update an existing record"},
                     "records": {
                         "type": "array",
                         "description": "Batch mode: list of breeding events/updates. Top-level fields apply to all unless overridden per item.",
                         "items": {
                             "type": "object",
                             "properties": {
-                                "dam_id":                {"type": "string"},
-                                "sire_id":               {"type": "string"},
-                                "breeding_date":         {"type": "string"},
-                                "expected_calving_date": {"type": "string"},
-                                "actual_calving_date":   {"type": "string"},
-                                "calf_id":               {"type": "string"},
-                                "outcome":               {"type": "string", "enum": ["live_birth", "stillbirth", "abort", "pending"]},
-                                "notes":                 {"type": "string"},
-                                "breeding_record_id":    {"type": "string"},
+                                **breeding_properties(),
+                                "breeding_record_id": {"type": "string"},
                             },
                         },
                     },

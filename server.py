@@ -45,6 +45,7 @@ from tools.retrieval import (
 from schemas.animals import ANIMAL_SEARCH_FIELDS, animal_properties
 from schemas.breeding_records import breeding_properties
 from schemas.health_events import health_event_properties
+from schemas.vaccinations import vaccination_properties
 
 load_dotenv()
 
@@ -243,30 +244,24 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "animal_id":         {"type": "string", "description": "Single-record mode: UUID"},
-                    "tag":               {"type": "string", "description": "Single-record mode: short tag"},
-                    "registration_num":  {"type": "string"},
-                    "vaccine_name":      {"type": "string", "description": "Default for all batch records"},
-                    "administered_date": {"type": "string", "description": "ISO date — default for all batch records"},
-                    "administered_by":   {"type": "string"},
-                    "next_due_date":     {"type": "string", "description": "ISO date — default for all batch records"},
-                    "lot_number":        {"type": "string"},
-                    "notes":             {"type": "string"},
+                    "animal_id":        {"type": "string", "description": "Single-record mode: UUID"},
+                    "tag":              {"type": "string", "description": "Single-record mode: short tag"},
+                    "registration_num": {"type": "string"},
+                    **vaccination_properties({
+                        "vaccine_name":      {"description": "Default for all batch records"},
+                        "administered_date": {"description": "ISO date — default for all batch records"},
+                        "next_due_date":     {"description": "ISO date — default for all batch records"},
+                    }),
                     "records": {
                         "type": "array",
                         "description": "Batch mode: list of animals. Top-level vaccine_name/administered_date/next_due_date apply to all unless overridden.",
                         "items": {
                             "type": "object",
                             "properties": {
-                                "tag":               {"type": "string"},
-                                "registration_num":  {"type": "string"},
-                                "animal_id":         {"type": "string"},
-                                "vaccine_name":      {"type": "string"},
-                                "administered_date": {"type": "string"},
-                                "administered_by":   {"type": "string"},
-                                "next_due_date":     {"type": "string"},
-                                "lot_number":        {"type": "string"},
-                                "notes":             {"type": "string"},
+                                "tag":              {"type": "string"},
+                                "registration_num": {"type": "string"},
+                                "animal_id":        {"type": "string"},
+                                **vaccination_properties(),
                             },
                         },
                     },

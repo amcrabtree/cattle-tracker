@@ -513,8 +513,19 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         if unknown:
             result = {"error": f"Unknown parameter(s) for tool '{name}': {', '.join(sorted(unknown))}"}
         else:
-            result = handler()
+            try:
+                result = handler()
+            except Exception as exc:
+                result = {"error": _describe_exception(name, exc)}
     return [TextContent(type="text", text=json.dumps(result, default=str))]
+
+
+def _describe_exception(tool_name: str, exc: Exception) -> str:
+    """Turn a raw exception into a readable message instead of leaking its repr."""
+    if isinstance(exc, KeyError):
+        return f"'{tool_name}' is missing a required field: {exc.args[0]}"
+    message = str(exc) or exc.__class__.__name__
+    return f"'{tool_name}' failed: {message}"
 
 
 async def _unknown_top_level_keys(tool_name: str, arguments: dict) -> set[str]:

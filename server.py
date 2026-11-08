@@ -36,6 +36,8 @@ from tools.intelligence import (
     get_upcoming_vaccinations,
 )
 from tools.retrieval import (
+    TABLE_FIELDS,
+    describe_fields,
     get_animal_detail,
     get_breeding_records,
     get_epds,
@@ -163,6 +165,21 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "animal_id": {"type": "string", "description": "UUID of the animal"},
                     "source":    {"type": "string", "description": "Breed association or registry, e.g. 'AAA', 'ASA'"},
+                },
+                "additionalProperties": False,
+            },
+        ),
+        Tool(
+            name="describe_fields",
+            description=(
+                "Look up the valid field names, types, and enums for a table (animals, weight_records, "
+                "vaccinations, health_events, breeding_records, epds) before calling an add/update/search tool. "
+                "Omit 'table' to get the fields for every table at once."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "table": {"type": "string", "enum": sorted(TABLE_FIELDS)},
                 },
                 "additionalProperties": False,
             },
@@ -474,6 +491,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         "get_health_events":         lambda: get_health_events(db, arguments),
         "get_breeding_records":      lambda: get_breeding_records(db, arguments),
         "get_epds":                  lambda: get_epds(db, arguments),
+        "describe_fields":           lambda: describe_fields(db, arguments),
         "add_animal":                lambda: add_animal(db, arguments),
         "update_animal":             lambda: update_animal(db, arguments),
         "record_weight":             lambda: record_weight(db, arguments),

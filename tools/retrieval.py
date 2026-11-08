@@ -1,6 +1,20 @@
 from supabase import Client
 
-from schemas.animals import ANIMAL_SEARCH_FIELDS, ANIMAL_SEARCH_PARTIAL_MATCH
+from schemas.animals import ANIMAL_FIELDS, ANIMAL_SEARCH_FIELDS, ANIMAL_SEARCH_PARTIAL_MATCH
+from schemas.breeding_records import BREEDING_FIELDS
+from schemas.epds import EPD_FIELDS
+from schemas.health_events import HEALTH_EVENT_FIELDS
+from schemas.vaccinations import VACCINATION_FIELDS
+from schemas.weight_records import WEIGHT_RECORD_FIELDS
+
+TABLE_FIELDS: dict[str, dict] = {
+    "animals":          ANIMAL_FIELDS,
+    "weight_records":   WEIGHT_RECORD_FIELDS,
+    "vaccinations":      VACCINATION_FIELDS,
+    "health_events":     HEALTH_EVENT_FIELDS,
+    "breeding_records":  BREEDING_FIELDS,
+    "epds":              EPD_FIELDS,
+}
 
 
 def search_animals(client: Client, args: dict) -> list[dict]:
@@ -16,6 +30,17 @@ def search_animals(client: Client, args: dict) -> list[dict]:
 
     result = query.order("tag").limit(100).execute()
     return result.data
+
+
+def describe_fields(client: Client, args: dict) -> dict:
+    """Return the valid field names/types/enums for one table, or all tables if none specified."""
+    table = args.get("table")
+    if table:
+        fields = TABLE_FIELDS.get(table)
+        if fields is None:
+            return {"error": f"Unknown table '{table}'. Must be one of: {', '.join(sorted(TABLE_FIELDS))}"}
+        return {"table": table, "fields": fields}
+    return {table: fields for table, fields in TABLE_FIELDS.items()}
 
 
 def get_animal_detail(client: Client, args: dict) -> dict:

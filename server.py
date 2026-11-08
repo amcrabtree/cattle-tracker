@@ -83,7 +83,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="get_animal_detail",
-            description="Full profile for one animal including weight history, vaccinations, health events, and breeding records.",
+            description="Full profile for one animal including weight history, vaccinations, health events, breeding records, and EPDs.",
             inputSchema={
                 "type": "object",
                 "required": ["animal_id"],

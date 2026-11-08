@@ -60,6 +60,13 @@ def get_animal_detail(client: Client, args: dict) -> dict:
         .order("breeding_date", desc=True)
         .execute()
     )
+    epds = (
+        client.table("epds")
+        .select("*")
+        .eq("animal_id", animal_id)
+        .limit(1)
+        .execute()
+    )
 
     return {
         "animal":           animal.data[0],
@@ -68,6 +75,7 @@ def get_animal_detail(client: Client, args: dict) -> dict:
         "health_events":    health_events.data,
         "breeding_as_dam":  as_dam.data,
         "breeding_as_sire": as_sire.data,
+        "epds":             epds.data[0] if epds.data else None,
     }
 
 

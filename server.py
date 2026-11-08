@@ -196,9 +196,9 @@ async def list_tools() -> list[Tool]:
             name="update_animal",
             description=(
                 "Update fields on one or more existing animals (status, tag, notes, parentage, etc.). For a single "
-                "animal, provide animal_id + fields to change. For a batch (e.g. marking several animals sold), set "
-                "top-level defaults (e.g. status) and pass an 'updates' array — each item needs animal_id, tag, or "
-                "registration_num. One tool call handles the whole batch."
+                "animal, provide animal_id/tag/registration_num + fields to change. For a batch (e.g. marking several "
+                "animals sold), set top-level defaults (e.g. status) and pass an 'updates' array — each item needs "
+                "animal_id, tag, or registration_num. One tool call handles the whole batch."
             ),
             inputSchema={
                 "type": "object",

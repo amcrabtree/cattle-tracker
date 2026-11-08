@@ -52,7 +52,9 @@ def update_animal(client: Client, args: dict) -> dict:
             return {"error": "No animals could be updated.", "skipped": skipped}
         return {"success": True, "updated": len(updated), "animals": updated, "skipped": skipped}
 
-    animal_id = args["animal_id"]
+    animal_id = _resolve_animal_id(client, args)
+    if not animal_id:
+        return {"error": "Could not resolve animal. Provide animal_id, tag, or registration_num."}
     updates = {k: args[k] for k in _ANIMAL_FIELDS if k in args}
     if not updates:
         return {"error": "No fields to update provided."}
@@ -108,6 +110,9 @@ def record_weight(client: Client, args: dict) -> dict:
     animal_id = _resolve_animal_id(client, args)
     if not animal_id:
         return {"error": "Could not resolve animal. Provide animal_id, tag, or registration_num."}
+    missing = [f for f in ("weight_lbs", "category") if f not in args]
+    if missing:
+        return {"error": f"Single-record mode requires: {', '.join(missing)}. Use the 'records' batch array for per-animal defaults instead."}
     row = {
         "animal_id":   animal_id,
         "weight_date": args.get("weight_date", today),
@@ -156,6 +161,9 @@ def record_vaccination(client: Client, args: dict) -> dict:
     animal_id = _resolve_animal_id(client, args)
     if not animal_id:
         return {"error": "Could not resolve animal. Provide animal_id, tag, or registration_num."}
+    missing = [f for f in ("vaccine_name", "administered_date") if f not in args]
+    if missing:
+        return {"error": f"Single-record mode requires: {', '.join(missing)}. Use the 'records' batch array for per-animal defaults instead."}
     row = {
         "animal_id":         animal_id,
         "vaccine_name":      args["vaccine_name"],
@@ -212,6 +220,9 @@ def log_health_event(client: Client, args: dict) -> dict:
     animal_id = _resolve_animal_id(client, args)
     if not animal_id:
         return {"error": "Could not resolve animal. Provide animal_id, tag, or registration_num."}
+    missing = [f for f in ("event_type", "description") if f not in args]
+    if missing:
+        return {"error": f"Single-record mode requires: {', '.join(missing)}. Use the 'records' batch array for per-animal defaults instead."}
     row = {
         "animal_id":    animal_id,
         "event_date":   args.get("event_date", today),
@@ -301,6 +312,9 @@ def record_breeding(client: Client, args: dict) -> dict:
             return {"error": f"No breeding record found with id '{args['breeding_record_id']}'"}
         return {"success": True, "breeding_record": result.data[0]}
 
+    missing = [f for f in ("dam_id", "sire_id") if f not in args]
+    if missing:
+        return {"error": f"New single record requires: {', '.join(missing)}. Provide breeding_record_id instead to update an existing record."}
     row = {
         "dam_id":  args["dam_id"],
         "sire_id": args["sire_id"],

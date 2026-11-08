@@ -42,6 +42,7 @@ from tools.retrieval import (
     get_weight_history,
     search_animals,
 )
+from tools.animal_schema import ANIMAL_SEARCH_FIELDS, animal_properties
 
 load_dotenv()
 
@@ -70,18 +71,10 @@ async def list_tools() -> list[Tool]:
         # ── Retrieval ──────────────────────────────────────────────────────────
         Tool(
             name="search_animals",
-            description="Search cattle by tag, registration number, PHN, name, status, type, or sex.",
+            description="Search cattle by tag, registration number, PHN, name, status, type, sex, disposition, or USDA EID.",
             inputSchema={
                 "type": "object",
-                "properties": {
-                    "tag":              {"type": "string", "description": "Short tag e.g. '28N'"},
-                    "registration_num": {"type": "string", "description": "Full registration number e.g. 'LFM3451181'"},
-                    "phn":              {"type": "string", "description": "Physical herd number e.g. 'SPAD 28N'"},
-                    "name":             {"type": "string", "description": "Sire display name e.g. 'GROWTH FUND'"},
-                    "status":           {"type": "string", "enum": ["active", "dead", "sold"]},
-                    "animal_type":      {"type": "string", "enum": ["calf", "cow", "bull", "sire", "steer"]},
-                    "sex":              {"type": "string", "enum": ["M", "F"]},
-                },
+                "properties": ANIMAL_SEARCH_FIELDS,
             },
         ),
         Tool(
@@ -160,39 +153,13 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "registration_num": {"type": "string"},
-                    "phn":              {"type": "string"},
-                    "tag":              {"type": "string"},
-                    "name":             {"type": "string", "description": "Sire display name"},
-                    "animal_type":      {"type": "string", "enum": ["calf", "cow", "bull", "sire", "steer"], "description": "Required in single mode; default for batch"},
-                    "sex":              {"type": "string", "enum": ["M", "F"]},
-                    "color":            {"type": "string"},
-                    "dob":              {"type": "string", "description": "ISO date"},
-                    "status":           {"type": "string", "enum": ["active", "dead", "sold"]},
-                    "dam_id":           {"type": "string", "description": "UUID of the dam"},
-                    "sire_id":          {"type": "string", "description": "UUID of the sire"},
-                    "bangs_tag":        {"type": "string", "description": "Official brucellosis vaccination tag number issued to heifers"},
-                    "notes":            {"type": "string"},
+                    **animal_properties({"animal_type": {"description": "Required in single mode; default for batch"}}),
                     "animals": {
                         "type": "array",
                         "description": "Batch mode: list of animals to add. Top-level fields apply to all unless overridden per item.",
                         "items": {
                             "type": "object",
-                            "properties": {
-                                "registration_num": {"type": "string"},
-                                "phn":              {"type": "string"},
-                                "tag":              {"type": "string"},
-                                "name":             {"type": "string"},
-                                "animal_type":      {"type": "string", "enum": ["calf", "cow", "bull", "sire", "steer"]},
-                                "sex":              {"type": "string", "enum": ["M", "F"]},
-                                "color":            {"type": "string"},
-                                "dob":              {"type": "string"},
-                                "status":           {"type": "string", "enum": ["active", "dead", "sold"]},
-                                "dam_id":           {"type": "string"},
-                                "sire_id":          {"type": "string"},
-                                "bangs_tag":        {"type": "string"},
-                                "notes":            {"type": "string"},
-                            },
+                            "properties": animal_properties(),
                         },
                     },
                 },
@@ -209,40 +176,16 @@ async def list_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "animal_id":        {"type": "string", "description": "Single-record mode: UUID"},
-                    "registration_num": {"type": "string"},
-                    "phn":              {"type": "string"},
-                    "tag":              {"type": "string"},
-                    "name":             {"type": "string"},
-                    "animal_type":      {"type": "string", "enum": ["calf", "cow", "bull", "sire", "steer"]},
-                    "sex":              {"type": "string", "enum": ["M", "F"]},
-                    "color":            {"type": "string"},
-                    "dob":              {"type": "string", "description": "ISO date"},
-                    "status":           {"type": "string", "enum": ["active", "dead", "sold"], "description": "Default for all batch updates"},
-                    "dam_id":           {"type": "string"},
-                    "sire_id":          {"type": "string"},
-                    "bangs_tag":        {"type": "string", "description": "Official brucellosis vaccination tag number issued to heifers"},
-                    "notes":            {"type": "string"},
+                    "animal_id": {"type": "string", "description": "Single-record mode: UUID"},
+                    **animal_properties({"status": {"description": "Default for all batch updates"}}),
                     "updates": {
                         "type": "array",
                         "description": "Batch mode: list of animals to update, each identified by animal_id, tag, or registration_num. Top-level fields apply to all unless overridden per item.",
                         "items": {
                             "type": "object",
                             "properties": {
-                                "animal_id":        {"type": "string"},
-                                "tag":              {"type": "string"},
-                                "registration_num": {"type": "string"},
-                                "phn":              {"type": "string"},
-                                "name":             {"type": "string"},
-                                "animal_type":      {"type": "string", "enum": ["calf", "cow", "bull", "sire", "steer"]},
-                                "sex":              {"type": "string", "enum": ["M", "F"]},
-                                "color":            {"type": "string"},
-                                "dob":              {"type": "string"},
-                                "status":           {"type": "string", "enum": ["active", "dead", "sold"]},
-                                "dam_id":           {"type": "string"},
-                                "sire_id":          {"type": "string"},
-                                "bangs_tag":        {"type": "string"},
-                                "notes":            {"type": "string"},
+                                "animal_id": {"type": "string"},
+                                **animal_properties(),
                             },
                         },
                     },

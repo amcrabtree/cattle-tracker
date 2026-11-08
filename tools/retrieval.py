@@ -1,27 +1,18 @@
 from supabase import Client
 
+from tools.animal_schema import ANIMAL_SEARCH_FIELDS, ANIMAL_SEARCH_PARTIAL_MATCH
+
 
 def search_animals(client: Client, args: dict) -> list[dict]:
     query = client.table("animals").select("*")
 
-    if args.get("tag"):
-        query = query.ilike("tag", f"%{args['tag']}%")
-    if args.get("registration_num"):
-        query = query.ilike("registration_num", f"%{args['registration_num']}%")
-    if args.get("phn"):
-        query = query.ilike("phn", f"%{args['phn']}%")
-    if args.get("name"):
-        query = query.ilike("name", f"%{args['name']}%")
-    if args.get("status"):
-        query = query.eq("status", args["status"])
-    if args.get("animal_type"):
-        query = query.eq("animal_type", args["animal_type"])
-    if args.get("sex"):
-        query = query.eq("sex", args["sex"])
-    if args.get("disposition"):
-        query = query.eq("disposition", args["disposition"])
-    if args.get("usda_eid"):
-        query = query.ilike("usda_eid", f"%{args['usda_eid']}%")
+    for field in ANIMAL_SEARCH_FIELDS:
+        if not args.get(field):
+            continue
+        if field in ANIMAL_SEARCH_PARTIAL_MATCH:
+            query = query.ilike(field, f"%{args[field]}%")
+        else:
+            query = query.eq(field, args[field])
 
     result = query.order("tag").limit(100).execute()
     return result.data

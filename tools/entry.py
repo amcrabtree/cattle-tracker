@@ -2,11 +2,9 @@ from datetime import date
 
 from supabase import Client
 
-_ANIMAL_FIELDS = [
-    "registration_num", "phn", "tag", "name", "animal_type",
-    "sex", "color", "dob", "status", "dam_id", "sire_id", "bangs_tag", "notes",
-    "disposition", "usda_eid",
-]
+from tools.animal_schema import ANIMAL_FIELDS
+
+_ANIMAL_FIELDS = list(ANIMAL_FIELDS)
 
 
 def add_animal(client: Client, args: dict) -> dict:

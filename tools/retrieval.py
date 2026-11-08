@@ -18,6 +18,10 @@ def search_animals(client: Client, args: dict) -> list[dict]:
         query = query.eq("animal_type", args["animal_type"])
     if args.get("sex"):
         query = query.eq("sex", args["sex"])
+    if args.get("disposition"):
+        query = query.eq("disposition", args["disposition"])
+    if args.get("usda_eid"):
+        query = query.ilike("usda_eid", f"%{args['usda_eid']}%")
 
     result = query.order("tag").limit(100).execute()
     return result.data

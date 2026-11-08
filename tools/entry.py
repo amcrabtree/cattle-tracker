@@ -5,6 +5,7 @@ from supabase import Client
 _ANIMAL_FIELDS = [
     "registration_num", "phn", "tag", "name", "animal_type",
     "sex", "color", "dob", "status", "dam_id", "sire_id", "bangs_tag", "notes",
+    "disposition", "usda_eid",
 ]
 
 
